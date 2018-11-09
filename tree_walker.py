@@ -6629,7 +6629,19 @@ TEST_TREVOR_JSON = {
 }
 
 
-
+CPS_IDS = [
+    'sport/front-page',
+    'news/business',
+    'news/entertainment_and_arts',
+    'news/world/australia',
+    'sport/boxing',
+    'news/politics/uk_leaves_the_eu',
+    'news/science_and_environment',
+    'news/technology',
+    'news/stories',
+    'news/wales',
+    'newyddion/front_page'
+]
 
 CONTENT_API_TEMPLATE = 'http://content-api-a127.api.bbci.co.uk/asset/{}?api_key={}'
 TREVOR_API_TEMPLATE = 'http://trevor-producer-cdn.api.bbci.co.uk/content/cps/{}'
@@ -6713,7 +6725,7 @@ def walkContentResponseTree(jsonContent, trevor_walked_tree):
     gp_pos = 0
     for group in groups:        
         tree_group_json = {}
-        tree_group_json['__meta_groups_pos'] = gp_pos
+        #tree_group_json['__meta_groups_pos'] = gp_pos
         gp_pos = gp_pos + 1
         AddLabelIfExistToTree(tree_group_json, 'semanticGroupName', group)
         AddLabelIfExistToTree(tree_group_json, 'title', group)
@@ -6748,7 +6760,7 @@ def walkContentResponseTree(jsonContent, trevor_walked_tree):
         tree_groups_json.append(tree_group_json)
     tree_json['groups'] = tree_groups_json
     
-    print json.dumps(tree_json, indent=4, sort_keys=True)
+    return tree_json
     return 
 
 def get_content_fromcontent_api(root_url, cps_id, api_key):
@@ -6762,7 +6774,7 @@ def get_content_fromcontent_api(root_url, cps_id, api_key):
 def main(argv):
 
     api_key = ''
-    cps_id = ''
+    cps_id_cmd = ''
     get_from_trevor = False
 
     try:
@@ -6778,31 +6790,46 @@ def main(argv):
         elif opt == "-a":
             api_key = arg
         elif opt == "-i":
-            cps_id = arg
+            cps_id_cmd = arg
         elif opt == "-t":
             get_from_trevor = True
         elif opt == "-c":
             get_from_trevor = False
+
             
 
-    #print 'api_key:' + api_key + ' ' + 'cps_id' + cps_id 
-    if cps_id is not None: 
-        jsonTrevor = get_content_fromcontent_api(TREVOR_API_TEMPLATE, cps_id, api_key)        
-        #test data
-        #jsonTrevor = TEST_TREVOR_JSON
-        trevor_walked_tree = walkTrevorResponseTree(jsonTrevor)
-        
-        if api_key is not None and get_from_trevor == False:
-            #when walking the content we do a comparison against the Trevor feed to see what items 
-            #make it into the Trevor feed (and what are filtered out)        
-            jsonContent = get_content_fromcontent_api(CONTENT_API_TEMPLATE, cps_id, api_key)        
-            #jsonContent = TEST_CONTENT_JSON
-            walkContentResponseTree(jsonContent, trevor_walked_tree)
+    #cps_ids = CPS_IDS
+    cps_ids = [] #uncomment if just want to get cps id from command line
+    cps_ids.append(cps_id_cmd)
+
+    for cps_id in cps_ids:
+        print cps_id
+        #print 'api_key:' + api_key + ' ' + 'cps_id' + cps_id 
+        file_post_fix = ''
+        if cps_id is not None: 
+            jsonTrevor = get_content_fromcontent_api(TREVOR_API_TEMPLATE, cps_id, api_key)        
+            #test data
+            #jsonTrevor = TEST_TREVOR_JSON
+            trevor_walked_tree = walkTrevorResponseTree(jsonTrevor)
+            tree_to_output = trevor_walked_tree
+            file_post_fix = '_t'
+            
+            if api_key is not None and get_from_trevor == False:
+                #when walking the content we do a comparison against the Trevor feed to see what items 
+                #make it into the Trevor feed (and what are filtered out)        
+                jsonContent = get_content_fromcontent_api(CONTENT_API_TEMPLATE, cps_id, api_key)        
+                #jsonContent = TEST_CONTENT_JSON
+                content_walked_tree = walkContentResponseTree(jsonContent, trevor_walked_tree)
+                tree_to_output = content_walked_tree
+                file_post_fix = '_c'
+                
+            #print json.dumps(tree_to_output, indent=4, sort_keys=True)
+            cps_id_file = cps_id.replace('/', '_')
+            f = open(cps_id_file + file_post_fix + ".json", "w")
+            f.write(json.dumps(tree_to_output, indent=4, sort_keys=True))
         else:
-            print json.dumps(trevor_walked_tree, indent=4, sort_keys=True)
-    else:
-        #cannot do anything
-        print_options_manual()
+            #cannot do anything
+            print_options_manual()
 
 def print_options_manual():
 	print 'tree_walker.py -a <api_key> -i <cps_index_id> -t (to get from trevor) -c (to get from content API)'
